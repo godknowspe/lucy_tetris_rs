@@ -1,5 +1,7 @@
 use crate::core::simulator::Simulator;
 use crate::core::board::TetrisEngine;
+use crate::core::pieces::Piece;
+use rayon::prelude::*;
 
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
@@ -9,6 +11,9 @@ pub struct Move {
     pub drop_y: i32,
     pub shape: [[u8; 4]; 4],
     pub score: f32,
+    pub ply1_score: f32,
+    pub sim_grid: Vec<Vec<u8>>,
+    pub cleared_lines: u32,
 }
 
 pub struct Evaluator;
@@ -55,15 +60,12 @@ impl Evaluator {
     }
 }
 
-pub struct AIBot;
+pub struct MoveGenerator;
 
-impl AIBot {
-    pub fn get_best_move(engine: &TetrisEngine) -> Option<Move> {
-        let current_piece = &engine.current_piece;
-        let mut best_move: Option<Move> = None;
-        let mut best_score = std::f32::NEG_INFINITY;
-
-        let mut test_piece = current_piece.clone();
+impl MoveGenerator {
+    pub fn get_possible_moves(piece: &Piece, width: usize, height: usize, base_grid: &Vec<Vec<u8>>) -> Vec<Move> {
+        let mut possible_moves = Vec::new();
+        let mut test_piece = piece.clone();
         let mut seen_shapes = Vec::new();
 
         for rot in 0..4 {
@@ -83,32 +85,91 @@ impl AIBot {
                 
                 if min_c <= max_c {
                     let start_x = -min_c;
-                    let end_x = engine.width as i32 - max_c;
+                    let end_x = width as i32 - max_c;
 
                     for x in start_x..end_x {
-                        let mut sim = Simulator::new(engine.width, engine.height, &engine.grid);
+                        let mut sim = Simulator::new(width, height, base_grid);
                         if sim.is_valid_position(&test_piece, x, 0) {
                             let drop_y = sim.drop_piece(&test_piece, x, 0);
                             sim.lock_piece(&test_piece, x, drop_y);
                             let cleared = sim.clear_lines();
                             let score = Evaluator::evaluate(&sim.grid, cleared);
 
-                            if score > best_score {
-                                best_score = score;
-                                best_move = Some(Move {
-                                    rotation: rot,
-                                    x,
-                                    drop_y,
-                                    shape: test_piece.shape,
-                                    score,
-                                });
-                            }
+                            possible_moves.push(Move {
+                                rotation: rot,
+                                x,
+                                drop_y,
+                                shape: test_piece.shape,
+                                score: std::f32::NEG_INFINITY,
+                                ply1_score: score,
+                                sim_grid: sim.grid.clone(),
+                                cleared_lines: cleared,
+                            });
                         }
                     }
                 }
             }
             test_piece.rotate();
         }
+        possible_moves
+    }
+}
+
+pub struct AIBot;
+
+impl AIBot {
+    pub fn get_best_move(engine: &TetrisEngine) -> Option<Move> {
+        let current_piece = &engine.current_piece;
+        let next_piece = &engine.next_piece;
+        let width = engine.width;
+        let height = engine.height;
+        let base_grid = &engine.grid;
+
+        let mut moves_ply1 = MoveGenerator::get_possible_moves(current_piece, width, height, base_grid);
+
+        if moves_ply1.is_empty() {
+            return None;
+        }
+
+        // Ply 2: Parallel evaluation
+        moves_ply1.par_iter_mut().for_each(|m1| {
+            let moves_ply2 = MoveGenerator::get_possible_moves(next_piece, width, height, &m1.sim_grid);
+            
+            if moves_ply2.is_empty() {
+                m1.score = std::f32::NEG_INFINITY;
+            } else {
+                let mut best_score_ply2 = std::f32::NEG_INFINITY;
+                for m2 in moves_ply2 {
+                    let eval_score = Evaluator::evaluate(&m2.sim_grid, m1.cleared_lines + m2.cleared_lines);
+                    if eval_score > best_score_ply2 {
+                        best_score_ply2 = eval_score;
+                    }
+                }
+                m1.score = best_score_ply2;
+            }
+        });
+
+        let mut best_move: Option<Move> = None;
+        let mut best_score = std::f32::NEG_INFINITY;
+
+        for m1 in &moves_ply1 {
+            if m1.score > best_score {
+                best_score = m1.score;
+                best_move = Some(m1.clone());
+            }
+        }
+
+        // Fallback: If all 2-ply evaluations lead to game over (-inf), fallback to best 1-ply move
+        if best_move.is_none() || best_score == std::f32::NEG_INFINITY {
+            let mut best_score_fallback = std::f32::NEG_INFINITY;
+            for m1 in &moves_ply1 {
+                if m1.ply1_score > best_score_fallback {
+                    best_score_fallback = m1.ply1_score;
+                    best_move = Some(m1.clone());
+                }
+            }
+        }
+
         best_move
     }
 }

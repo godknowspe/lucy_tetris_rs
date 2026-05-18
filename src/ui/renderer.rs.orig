@@ -57,9 +57,9 @@ impl Renderer {
 
     fn update_menu(&mut self) {
         if is_key_pressed(KeyCode::Up) {
-            self.menu_selection = (self.menu_selection + 3) % 4;
+            self.menu_selection = (self.menu_selection + 2) % 3;
         } else if is_key_pressed(KeyCode::Down) {
-            self.menu_selection = (self.menu_selection + 1) % 4;
+            self.menu_selection = (self.menu_selection + 1) % 3;
         }
 
         if is_key_pressed(KeyCode::Left) {
@@ -71,10 +71,10 @@ impl Renderer {
         } else if is_key_pressed(KeyCode::A) {
             self.ai_mode = (self.ai_mode + 1) % 3;
         } else if is_key_pressed(KeyCode::Enter) {
-            if self.menu_selection == 3 {
+            if self.menu_selection == 2 {
                 self.start_game();
             } else {
-                self.menu_selection = (self.menu_selection + 1) % 4;
+                self.menu_selection = (self.menu_selection + 1) % 3;
             }
         }
 
