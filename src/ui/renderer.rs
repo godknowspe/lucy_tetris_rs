@@ -98,50 +98,55 @@ impl Renderer {
     }
 
     fn update_playing(&mut self) {
-        let engine = self.engine.as_mut().unwrap();
+        let mut is_game_over = false;
         
-        if is_key_pressed(KeyCode::Up) {
-            engine.toggle_pause();
-        }
-
-        if !engine.paused && !engine.game_over {
-            let dt = get_frame_time();
-            self.fall_time += dt;
-
-            let current_speed = (self.fall_speed - (engine.level as f32 - 1.0) * 0.05).max(0.1);
-            
-            if self.fall_time >= current_speed {
-                engine.move_piece(0, 1);
-                self.fall_time = 0.0;
+        // 使用區塊 (Scope) 來限制 mutable borrow 的生命週期
+        if let Some(engine) = self.engine.as_mut() {
+            if is_key_pressed(KeyCode::Up) {
+                engine.toggle_pause();
             }
 
-            if is_key_pressed(KeyCode::Space) { engine.rotate_piece(); }
-            
-            let mut dx = 0;
-            let mut dy = 0;
-            
-            if is_key_pressed(KeyCode::Left) { dx = -1; self.key_repeat_timer = 0.0;}
-            if is_key_pressed(KeyCode::Right) { dx = 1; self.key_repeat_timer = 0.0;}
-            if is_key_pressed(KeyCode::Down) { dy = 1; self.key_repeat_timer = 0.0;}
+            if !engine.paused && !engine.game_over {
+                let dt = get_frame_time();
+                self.fall_time += dt;
 
-            if is_key_down(KeyCode::Left) || is_key_down(KeyCode::Right) || is_key_down(KeyCode::Down) {
-                self.key_repeat_timer += dt;
-                if self.key_repeat_timer > 0.15 {
-                    if is_key_down(KeyCode::Left) { dx = -1; }
-                    if is_key_down(KeyCode::Right) { dx = 1; }
-                    if is_key_down(KeyCode::Down) { dy = 1; }
-                    self.key_repeat_timer = 0.1;
+                let current_speed = (self.fall_speed - (engine.level as f32 - 1.0) * 0.05).max(0.1);
+                
+                if self.fall_time >= current_speed {
+                    engine.move_piece(0, 1);
+                    self.fall_time = 0.0;
+                }
+
+                if is_key_pressed(KeyCode::Space) { engine.rotate_piece(); }
+                
+                let mut dx = 0;
+                let mut dy = 0;
+                
+                if is_key_pressed(KeyCode::Left) { dx = -1; self.key_repeat_timer = 0.0;}
+                if is_key_pressed(KeyCode::Right) { dx = 1; self.key_repeat_timer = 0.0;}
+                if is_key_pressed(KeyCode::Down) { dy = 1; self.key_repeat_timer = 0.0;}
+
+                if is_key_down(KeyCode::Left) || is_key_down(KeyCode::Right) || is_key_down(KeyCode::Down) {
+                    self.key_repeat_timer += dt;
+                    if self.key_repeat_timer > 0.15 {
+                        if is_key_down(KeyCode::Left) { dx = -1; }
+                        if is_key_down(KeyCode::Right) { dx = 1; }
+                        if is_key_down(KeyCode::Down) { dy = 1; }
+                        self.key_repeat_timer = 0.1;
+                    }
+                }
+
+                if dx != 0 || dy != 0 {
+                    engine.move_piece(dx, dy);
                 }
             }
-
-            if dx != 0 || dy != 0 {
-                engine.move_piece(dx, dy);
-            }
+            is_game_over = engine.game_over;
         }
 
+        // 此時 self.engine 的 mutable borrow 已經結束，可以安全地呼叫 immutable borrow 的 draw_game
         self.draw_game();
 
-        if engine.game_over {
+        if is_game_over {
             self.state = GameState::GameOver;
         }
     }

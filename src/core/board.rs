@@ -18,7 +18,7 @@ pub struct TetrisEngine {
 
 impl TetrisEngine {
     pub fn new(width: usize, height: usize, seed: u64) -> Self {
-        let mut rng = StdRng::seed_from_u64(seed);
+        let rng = StdRng::seed_from_u64(seed);
         let mut engine = Self {
             width,
             height,
