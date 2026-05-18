@@ -1,3 +1,4 @@
+use crate::core::ai::{AIBot, Move};
 use macroquad::prelude::*;
 use crate::core::board::TetrisEngine;
 
@@ -17,6 +18,9 @@ pub struct Renderer {
     fall_speed: f32,
     cell_size: f32,
     key_repeat_timer: f32,
+    ai_mode: u8, // 0: OFF, 1: ON_FAST, 2: ON_SLOW
+    ai_target_move: Option<Move>,
+    ai_move_timer: f32,
 }
 
 impl Renderer {
@@ -31,6 +35,9 @@ impl Renderer {
             fall_speed: 0.5,
             cell_size: 30.0,
             key_repeat_timer: 0.0,
+            ai_mode: 0,
+            ai_target_move: None,
+            ai_move_timer: 0.0,
         }
     }
 
@@ -61,6 +68,8 @@ impl Renderer {
         } else if is_key_pressed(KeyCode::Right) {
             if self.menu_selection == 0 && self.config_width < 30 { self.config_width += 1; }
             if self.menu_selection == 1 && self.config_height < 40 { self.config_height += 1; }
+        } else if is_key_pressed(KeyCode::A) {
+            self.ai_mode = (self.ai_mode + 1) % 3;
         } else if is_key_pressed(KeyCode::Enter) {
             if self.menu_selection == 2 {
                 self.start_game();
@@ -75,6 +84,7 @@ impl Renderer {
         let items = [
             format!("Board Width: < {} >", self.config_width),
             format!("Board Height: < {} >", self.config_height),
+            format!("AI Mode (Press 'A'): {}", match self.ai_mode { 0 => "OFF", 1 => "FAST", _ => "SLOW" }),
             "START GAME".to_string()
         ];
 
@@ -105,6 +115,9 @@ impl Renderer {
             if is_key_pressed(KeyCode::Up) {
                 engine.toggle_pause();
             }
+            if is_key_pressed(KeyCode::A) {
+                self.ai_mode = (self.ai_mode + 1) % 3;
+            }
 
             if !engine.paused && !engine.game_over {
                 let dt = get_frame_time();
@@ -116,6 +129,39 @@ impl Renderer {
                     engine.move_piece(0, 1);
                     self.fall_time = 0.0;
                 }
+                if self.ai_mode != 0 {
+                    self.ai_move_timer += dt;
+                    if self.ai_move_timer > 0.05 { // 50ms action interval
+                        self.ai_move_timer = 0.0;
+                        if self.ai_target_move.is_none() {
+                            self.ai_target_move = AIBot::get_best_move(engine);
+                        }
+                        
+                        if let Some(target) = &self.ai_target_move {
+                            if engine.current_piece.shape != target.shape {
+                                engine.rotate_piece();
+                            } else if engine.current_piece.x < target.x {
+                                engine.move_piece(1, 0);
+                            } else if engine.current_piece.x > target.x {
+                                engine.move_piece(-1, 0);
+                            } else if self.ai_mode == 1 {
+                                // FAST MODE: Hard drop
+                                let mut hit_bottom = false;
+                                while !hit_bottom {
+                                    if !engine.move_piece(0, 1) { hit_bottom = true; }
+                                }
+                                self.ai_target_move = None;
+                            }
+                        }
+                        
+                        // Check if piece locked, reset target
+                        if let Some(target) = &self.ai_target_move {
+                             // This is a naive way to detect if next piece spawned
+                             // In robust impl, we track piece spawn. Here we reset if game over.
+                        }
+                    }
+                }
+
 
                 if is_key_pressed(KeyCode::Space) { engine.rotate_piece(); }
                 
@@ -136,8 +182,12 @@ impl Renderer {
                     }
                 }
 
+                let piece_before = engine.current_piece.shape_id;
                 if dx != 0 || dy != 0 {
                     engine.move_piece(dx, dy);
+                }
+                if piece_before != engine.current_piece.shape_id {
+                    self.ai_target_move = None;
                 }
             }
             is_game_over = engine.game_over;
@@ -216,13 +266,17 @@ impl Renderer {
         let status = if engine.paused { "Status: PAUSED" } else { "Status: PLAYING" };
         let status_col = if engine.paused { RED } else { WHITE };
         draw_text(status, panel_x, 150.0, 25.0, status_col);
+        
+        let ai_str = match self.ai_mode { 0 => "OFF", 1 => "FAST", _ => "SLOW" };
+        let ai_col = if self.ai_mode != 0 { GREEN } else { WHITE };
+        draw_text(&format!("AI Mode: {}", ai_str), panel_x, 180.0, 25.0, ai_col);
 
-        draw_text("NEXT PIECE:", panel_x, 200.0, 25.0, WHITE);
+        draw_text("NEXT PIECE:", panel_x, 220.0, 25.0, WHITE);
         for r in 0..4 {
             for c in 0..4 {
                 if engine.next_piece.shape[r][c] != 0 {
                     let rect_x = panel_x + c as f32 * self.cell_size;
-                    let rect_y = 230.0 + r as f32 * self.cell_size;
+                    let rect_y = 250.0 + r as f32 * self.cell_size;
                     draw_rectangle(rect_x, rect_y, self.cell_size - 2.0, self.cell_size - 2.0, colors[engine.next_piece.shape_id as usize]);
                 }
             }
