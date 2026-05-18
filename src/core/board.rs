@@ -89,7 +89,7 @@ impl TetrisEngine {
         }
     }
 
-    fn lock_piece(&mut self) {
+    pub fn lock_piece(&mut self) {
         for r in 0..4 {
             for c in 0..4 {
                 if self.current_piece.shape[r][c] != 0 {

@@ -1,7 +1,4 @@
-mod core;
-mod ui;
-
-use ui::renderer::Renderer;
+use lucy_tetris_rs::ui::renderer::Renderer;
 
 fn window_conf() -> macroquad::window::Conf {
     macroquad::window::Conf {
