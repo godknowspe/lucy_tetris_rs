@@ -1,8 +1,8 @@
 use crate::core::simulator::Simulator;
-use crate::core::pieces::Piece;
 use crate::core::board::TetrisEngine;
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct Move {
     pub rotation: u8,
     pub x: i32,

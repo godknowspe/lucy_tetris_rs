@@ -154,11 +154,9 @@ impl Renderer {
                             }
                         }
                         
-                        // Check if piece locked, reset target
-                        if let Some(target) = &self.ai_target_move {
-                             // This is a naive way to detect if next piece spawned
-                             // In robust impl, we track piece spawn. Here we reset if game over.
-                        }
+                        // // Wait for piece to lock before finding a new target
+                        // if let Some(_target) = &self.ai_target_move {
+                        // }
                     }
                 }
 
