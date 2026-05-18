@@ -43,8 +43,8 @@ fn main() {
         if last_print_time.elapsed().as_millis() > 100 {
             let elapsed = start_time.elapsed().as_secs_f64();
             let pps = pieces_placed as f64 / elapsed;
-            print!("\rScore: {} | Lines: {} | Level: {} | Pieces: {} | Speed: {:.1} pps", 
-                engine.score, engine.lines, engine.level, pieces_placed, pps);
+            print!("\rTime: {:.1}s | Score: {} | Lines: {} | Level: {} | Pieces: {} | Speed: {:.1} pps", 
+                elapsed, engine.score, engine.lines, engine.level, pieces_placed, pps);
             stdout().flush().unwrap();
             last_print_time = Instant::now();
         }
