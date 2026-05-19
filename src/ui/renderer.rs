@@ -260,7 +260,7 @@ impl Renderer {
         }
 
         // Draw current piece ghost
-        let mut sim = Simulator::new(engine.width, engine.height, &engine.grid);
+        let sim = Simulator::new(engine.width, engine.height, &engine.grid);
         if sim.is_valid_position(&engine.current_piece, engine.current_piece.x, engine.current_piece.y) {
             let drop_y = sim.drop_piece(&engine.current_piece, engine.current_piece.x, engine.current_piece.y);
             let ghost_color = Color::new(1.0, 1.0, 1.0, 0.2); // White transparent
