@@ -23,6 +23,7 @@ pub struct Renderer {
     ai_target_move: Option<Move>,
     ai_move_timer: f32,
     current_eval: Option<EvalDetails>,
+    ai_last_pieces_placed: u32,
 }
 
 impl Renderer {
@@ -41,6 +42,7 @@ impl Renderer {
             ai_target_move: None,
             ai_move_timer: 0.0,
             current_eval: None,
+            ai_last_pieces_placed: 0,
         }
     }
 
@@ -105,6 +107,7 @@ impl Renderer {
         self.fall_time = 0.0;
         self.ai_target_move = None;
         self.current_eval = None;
+        self.ai_last_pieces_placed = 0;
 
         let max_board_w = screen_width() - 350.0; // slightly more space for diag panel
         let max_board_h = screen_height() - 40.0;
@@ -136,6 +139,12 @@ impl Renderer {
                     self.fall_time = 0.0;
                 }
                 
+                // Check if new piece spawned
+                if engine.pieces_placed != self.ai_last_pieces_placed {
+                    self.ai_target_move = None;
+                    self.ai_last_pieces_placed = engine.pieces_placed;
+                }
+
                 // If any AI is on (including MANUAL_AI), calculate the target
                 if self.ai_mode != 0 {
                     self.ai_move_timer += dt;

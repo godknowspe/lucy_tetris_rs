@@ -11,6 +11,7 @@ pub struct TetrisEngine {
     pub score: u32,
     pub lines: u32,
     pub level: u32,
+    pub pieces_placed: u32,
     pub game_over: bool,
     pub paused: bool,
     rng: StdRng,
@@ -28,6 +29,7 @@ impl TetrisEngine {
             score: 0,
             lines: 0,
             level: 1,
+            pieces_placed: 0,
             game_over: false,
             paused: false,
             rng,
@@ -103,6 +105,7 @@ impl TetrisEngine {
         }
         self.clear_lines();
         self.current_piece = self.next_piece.clone();
+        self.pieces_placed += 1;
         self.next_piece = self.spawn_piece();
         if !self.is_valid_position(&self.current_piece, 0, 0, None) {
             self.game_over = true;
