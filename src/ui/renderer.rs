@@ -1,4 +1,5 @@
-use crate::core::ai::{AIBot, Move};
+use crate::core::ai::{AIBot, Move, Evaluator, EvalDetails};
+use crate::core::simulator::Simulator;
 use macroquad::prelude::*;
 use crate::core::board::TetrisEngine;
 
@@ -18,9 +19,10 @@ pub struct Renderer {
     fall_speed: f32,
     cell_size: f32,
     key_repeat_timer: f32,
-    ai_mode: u8, // 0: OFF, 1: ON_FAST, 2: ON_SLOW
+    ai_mode: u8, // 0: OFF, 1: ON_FAST, 2: ON_SLOW, 3: MANUAL_AI
     ai_target_move: Option<Move>,
     ai_move_timer: f32,
+    current_eval: Option<EvalDetails>,
 }
 
 impl Renderer {
@@ -38,6 +40,7 @@ impl Renderer {
             ai_mode: 0,
             ai_target_move: None,
             ai_move_timer: 0.0,
+            current_eval: None,
         }
     }
 
@@ -69,7 +72,7 @@ impl Renderer {
             if self.menu_selection == 0 && self.config_width < 30 { self.config_width += 1; }
             if self.menu_selection == 1 && self.config_height < 40 { self.config_height += 1; }
         } else if is_key_pressed(KeyCode::A) {
-            self.ai_mode = (self.ai_mode + 1) % 3;
+            self.ai_mode = (self.ai_mode + 1) % 4;
         } else if is_key_pressed(KeyCode::Enter) {
             if self.menu_selection == 3 {
                 self.start_game();
@@ -81,10 +84,11 @@ impl Renderer {
         let title = "LUCY TETRIS (RUST)";
         draw_text(title, screen_width()/2.0 - 150.0, 100.0, 40.0, WHITE);
 
+        let ai_str = match self.ai_mode { 0 => "OFF", 1 => "FAST", 2 => "SLOW", _ => "MANUAL_AI" };
         let items = [
             format!("Board Width: < {} >", self.config_width),
             format!("Board Height: < {} >", self.config_height),
-            format!("AI Mode (Press 'A'): {}", match self.ai_mode { 0 => "OFF", 1 => "FAST", _ => "SLOW" }),
+            format!("AI Mode (Press 'A'): {}", ai_str),
             "START GAME".to_string()
         ];
 
@@ -99,8 +103,10 @@ impl Renderer {
         self.engine = Some(TetrisEngine::new(self.config_width, self.config_height, seed));
         self.state = GameState::Playing;
         self.fall_time = 0.0;
+        self.ai_target_move = None;
+        self.current_eval = None;
 
-        let max_board_w = screen_width() - 250.0;
+        let max_board_w = screen_width() - 350.0; // slightly more space for diag panel
         let max_board_h = screen_height() - 40.0;
         let cell_w = max_board_w / self.config_width as f32;
         let cell_h = max_board_h / self.config_height as f32;
@@ -110,13 +116,13 @@ impl Renderer {
     fn update_playing(&mut self) {
         let mut is_game_over = false;
         
-        // 使用區塊 (Scope) 來限制 mutable borrow 的生命週期
         if let Some(engine) = self.engine.as_mut() {
             if is_key_pressed(KeyCode::Up) {
                 engine.toggle_pause();
             }
             if is_key_pressed(KeyCode::A) {
-                self.ai_mode = (self.ai_mode + 1) % 3;
+                self.ai_mode = (self.ai_mode + 1) % 4;
+                self.ai_target_move = None;
             }
 
             if !engine.paused && !engine.game_over {
@@ -129,37 +135,37 @@ impl Renderer {
                     engine.move_piece(0, 1);
                     self.fall_time = 0.0;
                 }
+                
+                // If any AI is on (including MANUAL_AI), calculate the target
                 if self.ai_mode != 0 {
                     self.ai_move_timer += dt;
-                    if self.ai_move_timer > 0.05 { // 50ms action interval
+                    if self.ai_move_timer > 0.05 {
                         self.ai_move_timer = 0.0;
                         if self.ai_target_move.is_none() {
                             self.ai_target_move = AIBot::get_best_move(engine);
                         }
                         
-                        if let Some(target) = &self.ai_target_move {
-                            if engine.current_piece.shape != target.shape {
-                                engine.rotate_piece();
-                            } else if engine.current_piece.x < target.x {
-                                engine.move_piece(1, 0);
-                            } else if engine.current_piece.x > target.x {
-                                engine.move_piece(-1, 0);
-                            } else if self.ai_mode == 1 {
-                                // FAST MODE: Hard drop
-                                let mut hit_bottom = false;
-                                while !hit_bottom {
-                                    if !engine.move_piece(0, 1) { hit_bottom = true; }
+                        // ONLY AUTO EXECUTE in FAST(1) or SLOW(2) modes
+                        if self.ai_mode == 1 || self.ai_mode == 2 {
+                            if let Some(target) = &self.ai_target_move {
+                                if engine.current_piece.shape != target.shape {
+                                    engine.rotate_piece();
+                                } else if engine.current_piece.x < target.x {
+                                    engine.move_piece(1, 0);
+                                } else if engine.current_piece.x > target.x {
+                                    engine.move_piece(-1, 0);
+                                } else if self.ai_mode == 1 {
+                                    // FAST MODE: Hard drop
+                                    let mut hit_bottom = false;
+                                    while !hit_bottom {
+                                        if !engine.move_piece(0, 1) { hit_bottom = true; }
+                                    }
+                                    self.ai_target_move = None;
                                 }
-                                self.ai_target_move = None;
                             }
                         }
-                        
-                        // // Wait for piece to lock before finding a new target
-                        // if let Some(_target) = &self.ai_target_move {
-                        // }
                     }
                 }
-
 
                 if is_key_pressed(KeyCode::Space) { engine.rotate_piece(); }
                 
@@ -181,17 +187,31 @@ impl Renderer {
                 }
 
                 let piece_before = engine.current_piece.shape_id;
+                let mut manual_moved = false;
                 if dx != 0 || dy != 0 {
                     engine.move_piece(dx, dy);
+                    manual_moved = true;
                 }
-                if piece_before != engine.current_piece.shape_id {
-                    self.ai_target_move = None;
+                if piece_before != engine.current_piece.shape_id || manual_moved {
+                    if self.ai_mode == 1 || self.ai_mode == 2 {
+                        self.ai_target_move = None;
+                    }
+                }
+
+                // If MANUAL_AI mode, evaluate the current ghost position
+                if self.ai_mode == 3 {
+                    let mut sim = Simulator::new(engine.width, engine.height, &engine.grid);
+                    if sim.is_valid_position(&engine.current_piece, engine.current_piece.x, engine.current_piece.y) {
+                        let drop_y = sim.drop_piece(&engine.current_piece, engine.current_piece.x, engine.current_piece.y);
+                        sim.lock_piece(&engine.current_piece, engine.current_piece.x, drop_y);
+                        let cleared = sim.clear_lines();
+                        self.current_eval = Some(Evaluator::evaluate_details(&sim.grid, cleared));
+                    }
                 }
             }
             is_game_over = engine.game_over;
         }
 
-        // 此時 self.engine 的 mutable borrow 已經結束，可以安全地呼叫 immutable borrow 的 draw_game
         self.draw_game();
 
         if is_game_over {
@@ -225,6 +245,7 @@ impl Renderer {
             Color::new(1.0, 0.0, 0.0, 1.0), // Z
         ];
 
+        // Draw grid
         for y in 0..engine.height {
             for x in 0..engine.width {
                 let rect_x = offset_x + x as f32 * self.cell_size;
@@ -238,6 +259,48 @@ impl Renderer {
             }
         }
 
+        // Draw current piece ghost
+        let mut sim = Simulator::new(engine.width, engine.height, &engine.grid);
+        if sim.is_valid_position(&engine.current_piece, engine.current_piece.x, engine.current_piece.y) {
+            let drop_y = sim.drop_piece(&engine.current_piece, engine.current_piece.x, engine.current_piece.y);
+            let ghost_color = Color::new(1.0, 1.0, 1.0, 0.2); // White transparent
+            for r in 0..4 {
+                for c in 0..4 {
+                    if engine.current_piece.shape[r][c] != 0 {
+                        let y = drop_y + r as i32;
+                        let x = engine.current_piece.x + c as i32;
+                        if y >= 0 {
+                            let rect_x = offset_x + x as f32 * self.cell_size;
+                            let rect_y = offset_y + y as f32 * self.cell_size;
+                            draw_rectangle_lines(rect_x, rect_y, self.cell_size, self.cell_size, 2.0, ghost_color);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Draw AI target ghost (red transparent) in MANUAL_AI mode
+        if self.ai_mode == 3 {
+            if let Some(target) = &self.ai_target_move {
+                let ai_ghost_col = Color::new(1.0, 0.0, 0.0, 0.4);
+                for r in 0..4 {
+                    for c in 0..4 {
+                        if target.shape[r][c] != 0 {
+                            let y = target.drop_y + r as i32;
+                            let x = target.x + c as i32;
+                            if y >= 0 {
+                                let rect_x = offset_x + x as f32 * self.cell_size;
+                                let rect_y = offset_y + y as f32 * self.cell_size;
+                                draw_rectangle(rect_x + 1.0, rect_y + 1.0, self.cell_size - 2.0, self.cell_size - 2.0, ai_ghost_col);
+                                draw_rectangle_lines(rect_x, rect_y, self.cell_size, self.cell_size, 1.0, RED);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Draw current piece
         for r in 0..4 {
             for c in 0..4 {
                 if engine.current_piece.shape[r][c] != 0 {
@@ -256,6 +319,7 @@ impl Renderer {
         let board_h = engine.height as f32 * self.cell_size;
         draw_rectangle_lines(offset_x, offset_y, board_w, board_h, 2.0, WHITE);
 
+        // Sidebar Info
         let panel_x = offset_x + board_w + 30.0;
         draw_text(&format!("Score: {}", engine.score), panel_x, 50.0, 25.0, WHITE);
         draw_text(&format!("Lines: {}", engine.lines), panel_x, 80.0, 25.0, WHITE);
@@ -265,7 +329,7 @@ impl Renderer {
         let status_col = if engine.paused { RED } else { WHITE };
         draw_text(status, panel_x, 150.0, 25.0, status_col);
         
-        let ai_str = match self.ai_mode { 0 => "OFF", 1 => "FAST", _ => "SLOW" };
+        let ai_str = match self.ai_mode { 0 => "OFF", 1 => "FAST", 2 => "SLOW", _ => "MANUAL_AI" };
         let ai_col = if self.ai_mode != 0 { GREEN } else { WHITE };
         draw_text(&format!("AI Mode: {}", ai_str), panel_x, 180.0, 25.0, ai_col);
 
@@ -276,6 +340,35 @@ impl Renderer {
                     let rect_x = panel_x + c as f32 * self.cell_size;
                     let rect_y = 250.0 + r as f32 * self.cell_size;
                     draw_rectangle(rect_x, rect_y, self.cell_size - 2.0, self.cell_size - 2.0, colors[engine.next_piece.shape_id as usize]);
+                }
+            }
+        }
+
+        // Diagnostics Panel
+        if self.ai_mode == 3 {
+            let diag_y = 390.0;
+            draw_text("--- AI Diagnostics ---", panel_x, diag_y, 20.0, Color::new(1.0, 0.8, 0.2, 1.0));
+            
+            if let Some(eval) = &self.current_eval {
+                let mut diag_texts = vec![
+                    format!("Height (-0.51): {}", eval.agg_height),
+                    format!("Lines (+0.76): {}", eval.cleared_lines),
+                    format!("Holes (-0.36): {}", eval.holes),
+                    format!("Bumpiness (-0.18): {}", eval.bumpiness),
+                    format!("Curr Score: {:.2}", eval.score),
+                ];
+                
+                if let Some(target) = &self.ai_target_move {
+                    diag_texts.push(format!("AI Best (1-Ply): {:.2}", target.ply1_score));
+                    diag_texts.push(format!("AI Best (2-Ply): {:.2}", target.score));
+                }
+
+                for (i, text) in diag_texts.iter().enumerate() {
+                    let mut color = Color::new(0.8, 0.8, 0.8, 1.0);
+                    if text.starts_with("Curr Score") { color = Color::new(0.4, 1.0, 1.0, 1.0); }
+                    else if text.starts_with("AI Best") { color = Color::new(1.0, 0.4, 0.4, 1.0); }
+                    
+                    draw_text(text, panel_x, diag_y + 30.0 + i as f32 * 25.0, 18.0, color);
                 }
             }
         }

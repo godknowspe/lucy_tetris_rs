@@ -16,10 +16,19 @@ pub struct Move {
     pub cleared_lines: u32,
 }
 
+#[derive(Clone, Debug)]
+pub struct EvalDetails {
+    pub agg_height: i32,
+    pub cleared_lines: u32,
+    pub holes: i32,
+    pub bumpiness: i32,
+    pub score: f32,
+}
+
 pub struct Evaluator;
 
 impl Evaluator {
-    pub fn evaluate(grid: &Vec<Vec<u8>>, cleared_lines: u32) -> f32 {
+    pub fn evaluate_details(grid: &Vec<Vec<u8>>, cleared_lines: u32) -> EvalDetails {
         let w_height = -0.51;
         let w_lines = 0.76;
         let w_holes = -0.36;
@@ -53,10 +62,22 @@ impl Evaluator {
             bumpiness += (heights[i] - heights[i+1]).abs();
         }
 
-        (w_height * agg_height as f32) + 
-        (w_lines * cleared_lines as f32) + 
-        (w_holes * holes as f32) + 
-        (w_bumpiness * bumpiness as f32)
+        let score = (w_height * agg_height as f32) + 
+                    (w_lines * cleared_lines as f32) + 
+                    (w_holes * holes as f32) + 
+                    (w_bumpiness * bumpiness as f32);
+
+        EvalDetails {
+            agg_height,
+            cleared_lines,
+            holes,
+            bumpiness,
+            score,
+        }
+    }
+
+    pub fn evaluate(grid: &Vec<Vec<u8>>, cleared_lines: u32) -> f32 {
+        Self::evaluate_details(grid, cleared_lines).score
     }
 }
 
