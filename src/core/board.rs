@@ -1,6 +1,6 @@
 use crate::core::pieces::Piece;
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 pub struct TetrisEngine {
     pub width: usize,
@@ -39,14 +39,18 @@ impl TetrisEngine {
         engine
     }
 
-        fn spawn_piece(&mut self) -> Piece {
+    fn spawn_piece(&mut self) -> Piece {
         let id = self.rng.gen_range(0..7) as u8;
         Piece::new((self.width / 2 - 2) as i32, 0, id)
     }
-        piece
-    }
 
-    pub fn is_valid_position(&self, piece: &Piece, adj_x: i32, adj_y: i32, rotated_shape: Option<[[u8;4];4]>) -> bool {
+    pub fn is_valid_position(
+        &self,
+        piece: &Piece,
+        adj_x: i32,
+        adj_y: i32,
+        rotated_shape: Option<[[u8; 4]; 4]>,
+    ) -> bool {
         let shape = rotated_shape.unwrap_or(piece.shape);
         for r in 0..4 {
             for c in 0..4 {
@@ -66,7 +70,9 @@ impl TetrisEngine {
     }
 
     pub fn move_piece(&mut self, dx: i32, dy: i32) -> bool {
-        if self.game_over || self.paused { return false; }
+        if self.game_over || self.paused {
+            return false;
+        }
         if self.is_valid_position(&self.current_piece, dx, dy, None) {
             self.current_piece.x += dx;
             self.current_piece.y += dy;
@@ -80,7 +86,9 @@ impl TetrisEngine {
     }
 
     pub fn rotate_piece(&mut self) {
-        if self.game_over || self.paused { return; }
+        if self.game_over || self.paused {
+            return;
+        }
         let rotated = self.current_piece.get_rotated_shape();
         if self.is_valid_position(&self.current_piece, 0, 0, Some(rotated)) {
             self.current_piece.rotate();
