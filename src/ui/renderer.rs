@@ -411,7 +411,29 @@ impl Renderer {
                 if engine.next_piece.shape[r][c] != 0 {
                     let rect_x = panel_x + c as f32 * self.cell_size;
                     let rect_y = 250.0 + r as f32 * self.cell_size;
-                    draw_rectangle(rect_x, rect_y, self.cell_size - 2.0, self.cell_size - 2.0, colors[engine.next_piece.shape_id as usize]);
+                    
+                    let shape_id = engine.next_piece.shape_id;
+                    let is_question = (shape_id & 128) != 0;
+                    let color_id = (shape_id & 0x7F) as usize;
+                    
+                    if matches!(self.theme, Theme::SuperMario) && self.brick_tex.is_some() {
+                        let tex = if is_question && self.question_tex.is_some() {
+                            self.question_tex.as_ref().unwrap()
+                        } else {
+                            self.brick_tex.as_ref().unwrap()
+                        };
+                        draw_texture_ex(
+                            tex,
+                            rect_x, rect_y,
+                            WHITE, // Use WHITE to disable color tinting
+                            DrawTextureParams {
+                                dest_size: Some(vec2(self.cell_size - 2.0, self.cell_size - 2.0)),
+                                ..Default::default()
+                            }
+                        );
+                    } else {
+                        draw_rectangle(rect_x, rect_y, self.cell_size - 2.0, self.cell_size - 2.0, colors[color_id]);
+                    }
                 }
             }
         }
