@@ -41,10 +41,8 @@ impl TetrisEngine {
 
         fn spawn_piece(&mut self) -> Piece {
         let id = self.rng.gen_range(0..7) as u8;
-        let mut piece = Piece::new((self.width / 2 - 2) as i32, 0, id);
-        if self.rng.gen_range(0..40) == 0 {
-            piece.shape_id |= 128; // set high bit for question block
-        }
+        Piece::new((self.width / 2 - 2) as i32, 0, id)
+    }
         piece
     }
 
@@ -102,7 +100,7 @@ impl TetrisEngine {
                     let y = self.current_piece.y + r as i32;
                     let x = self.current_piece.x + c as i32;
                     if y >= 0 && y < self.height as i32 {
-                        self.grid[y as usize][x as usize] = self.current_piece.shape_id;
+                        self.grid[y as usize][x as usize] = self.current_piece.shape[r][c];
                     }
                 }
             }

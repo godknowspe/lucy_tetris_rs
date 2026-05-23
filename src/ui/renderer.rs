@@ -360,9 +360,9 @@ impl Renderer {
                     if y >= 0 {
                         let rect_x = offset_x + x as f32 * self.cell_size;
                         let rect_y = offset_y + y as f32 * self.cell_size;
-                        let shape_id = engine.current_piece.shape_id;
-                        let is_question = (shape_id & 128) != 0;
-                        let color_id = (shape_id & 0x7F) as usize;
+                        let cell_val = engine.current_piece.shape[r][c];
+                        let is_question = (cell_val & 128) != 0;
+                        let color_id = (cell_val & 0x7F) as usize;
                         
                         if matches!(self.theme, Theme::SuperMario) && self.brick_tex.is_some() {
                             let tex = if is_question && self.question_tex.is_some() {
@@ -412,9 +412,9 @@ impl Renderer {
                     let rect_x = panel_x + c as f32 * self.cell_size;
                     let rect_y = 250.0 + r as f32 * self.cell_size;
                     
-                    let shape_id = engine.next_piece.shape_id;
-                    let is_question = (shape_id & 128) != 0;
-                    let color_id = (shape_id & 0x7F) as usize;
+                    let cell_val = engine.next_piece.shape[r][c];
+                    let is_question = (cell_val & 128) != 0;
+                    let color_id = (cell_val & 0x7F) as usize;
                     
                     if matches!(self.theme, Theme::SuperMario) && self.brick_tex.is_some() {
                         let tex = if is_question && self.question_tex.is_some() {

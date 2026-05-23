@@ -25,7 +25,24 @@ pub const SHAPES: [[[u8; 4]; 4]; 7] = [
 
 impl Piece {
     pub fn new(x: i32, y: i32, id: u8) -> Self {
-        Self { x, y, shape_id: id + 1, shape: SHAPES[id as usize] }
+        let mut shape = SHAPES[id as usize];
+        let shape_id = id + 1;
+        
+        let mut rng = rand::thread_rng();
+        use rand::Rng;
+
+        for r in 0..4 {
+            for c in 0..4 {
+                if shape[r][c] != 0 {
+                    let mut val = shape_id;
+                    if rng.gen_range(0..40) == 0 {
+                        val |= 128; // mark as question block
+                    }
+                    shape[r][c] = val;
+                }
+            }
+        }
+        Self { x, y, shape_id, shape }
     }
     
     pub fn rotate(&mut self) {
