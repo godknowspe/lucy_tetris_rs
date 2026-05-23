@@ -18,6 +18,7 @@ pub struct Renderer {
     state: GameState,
     theme: Theme,
     brick_tex: Option<macroquad::texture::Texture2D>,
+    question_tex: Option<macroquad::texture::Texture2D>,
     config_width: usize,
     config_height: usize,
     menu_selection: u8,
@@ -39,6 +40,7 @@ impl Renderer {
             state: GameState::Menu,
             theme: Theme::SuperMario, // Default to Super Mario theme
             brick_tex: None,
+            question_tex: None,
             config_width: 10,
             config_height: 20,
             menu_selection: 0,
@@ -60,6 +62,10 @@ impl Renderer {
         if let Ok(tex) = load_texture("src/ui/pic/brick.png").await {
             tex.set_filter(FilterMode::Nearest);
             self.brick_tex = Some(tex);
+        }
+        if let Ok(tex) = load_texture("src/ui/pic/question.png").await {
+            tex.set_filter(FilterMode::Nearest);
+            self.question_tex = Some(tex);
         }
 
         loop {
@@ -279,9 +285,17 @@ impl Renderer {
                 
                 let cell = engine.grid[y][x];
                 if cell != 0 {
+                    let is_question = (cell & 128) != 0;
+                    let color_id = (cell & 0x7F) as usize;
+                    
                     if matches!(self.theme, Theme::SuperMario) && self.brick_tex.is_some() {
+                        let tex = if is_question && self.question_tex.is_some() {
+                            self.question_tex.as_ref().unwrap()
+                        } else {
+                            self.brick_tex.as_ref().unwrap()
+                        };
                         draw_texture_ex(
-                            self.brick_tex.as_ref().unwrap(),
+                            tex,
                             rect_x, rect_y,
                             WHITE, // Use WHITE to disable color tinting
                             DrawTextureParams {
@@ -290,7 +304,7 @@ impl Renderer {
                             }
                         );
                     } else {
-                        draw_rectangle(rect_x + 1.0, rect_y + 1.0, self.cell_size - 2.0, self.cell_size - 2.0, colors[cell as usize]);
+                        draw_rectangle(rect_x + 1.0, rect_y + 1.0, self.cell_size - 2.0, self.cell_size - 2.0, colors[color_id]);
                     }
                 }
             }
@@ -346,9 +360,18 @@ impl Renderer {
                     if y >= 0 {
                         let rect_x = offset_x + x as f32 * self.cell_size;
                         let rect_y = offset_y + y as f32 * self.cell_size;
+                        let shape_id = engine.current_piece.shape_id;
+                        let is_question = (shape_id & 128) != 0;
+                        let color_id = (shape_id & 0x7F) as usize;
+                        
                         if matches!(self.theme, Theme::SuperMario) && self.brick_tex.is_some() {
+                            let tex = if is_question && self.question_tex.is_some() {
+                                self.question_tex.as_ref().unwrap()
+                            } else {
+                                self.brick_tex.as_ref().unwrap()
+                            };
                             draw_texture_ex(
-                                self.brick_tex.as_ref().unwrap(),
+                                tex,
                                 rect_x, rect_y,
                                 WHITE, // Use WHITE to disable color tinting
                                 DrawTextureParams {
@@ -357,7 +380,7 @@ impl Renderer {
                                 }
                             );
                         } else {
-                            draw_rectangle(rect_x + 1.0, rect_y + 1.0, self.cell_size - 2.0, self.cell_size - 2.0, colors[engine.current_piece.shape_id as usize]);
+                            draw_rectangle(rect_x + 1.0, rect_y + 1.0, self.cell_size - 2.0, self.cell_size - 2.0, colors[color_id]);
                         }
                     }
                 }

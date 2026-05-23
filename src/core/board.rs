@@ -39,9 +39,13 @@ impl TetrisEngine {
         engine
     }
 
-    fn spawn_piece(&mut self) -> Piece {
+        fn spawn_piece(&mut self) -> Piece {
         let id = self.rng.gen_range(0..7) as u8;
-        Piece::new((self.width / 2 - 2) as i32, 0, id)
+        let mut piece = Piece::new((self.width / 2 - 2) as i32, 0, id);
+        if self.rng.gen_range(0..40) == 0 {
+            piece.shape_id |= 128; // set high bit for question block
+        }
+        piece
     }
 
     pub fn is_valid_position(&self, piece: &Piece, adj_x: i32, adj_y: i32, rotated_shape: Option<[[u8;4];4]>) -> bool {
