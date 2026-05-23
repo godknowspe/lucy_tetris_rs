@@ -270,7 +270,7 @@ impl Renderer {
         ];
 
         // Draw grid
-        let grid_col = if matches!(self.theme, Theme::SuperMario) { Color::new(1.0, 1.0, 1.0, 0.3) } else { DARKGRAY };
+        let grid_col = if matches!(self.theme, Theme::SuperMario) { Color::new(0.0, 0.0, 0.0, 0.0) } else { DARKGRAY };
         for y in 0..engine.height {
             for x in 0..engine.width {
                 let rect_x = offset_x + x as f32 * self.cell_size;
