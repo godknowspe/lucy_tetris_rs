@@ -283,7 +283,7 @@ impl Renderer {
                         draw_texture_ex(
                             self.brick_tex.as_ref().unwrap(),
                             rect_x, rect_y,
-                            colors[cell as usize],
+                            WHITE, // Use WHITE to disable color tinting
                             DrawTextureParams {
                                 dest_size: Some(vec2(self.cell_size, self.cell_size)),
                                 ..Default::default()
@@ -350,7 +350,7 @@ impl Renderer {
                             draw_texture_ex(
                                 self.brick_tex.as_ref().unwrap(),
                                 rect_x, rect_y,
-                                colors[engine.current_piece.shape_id as usize],
+                                WHITE, // Use WHITE to disable color tinting
                                 DrawTextureParams {
                                     dest_size: Some(vec2(self.cell_size, self.cell_size)),
                                     ..Default::default()
