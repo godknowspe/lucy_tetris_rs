@@ -57,7 +57,7 @@ impl Renderer {
 
     pub async fn run(&mut self) {
         // 載入材質
-        if let Ok(tex) = load_texture("src/ui/pic/brick.jpeg").await {
+        if let Ok(tex) = load_texture("src/ui/pic/brick.png").await {
             tex.set_filter(FilterMode::Nearest);
             self.brick_tex = Some(tex);
         }
