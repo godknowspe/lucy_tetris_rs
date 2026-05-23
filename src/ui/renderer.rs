@@ -281,7 +281,7 @@ impl Renderer {
                 if cell != 0 {
                     if matches!(self.theme, Theme::SuperMario) && self.brick_tex.is_some() {
                         draw_texture_ex(
-                            self.brick_tex.unwrap(),
+                            &self.brick_tex.unwrap(),
                             rect_x, rect_y,
                             colors[cell as usize],
                             DrawTextureParams {
@@ -348,7 +348,7 @@ impl Renderer {
                         let rect_y = offset_y + y as f32 * self.cell_size;
                         if matches!(self.theme, Theme::SuperMario) && self.brick_tex.is_some() {
                             draw_texture_ex(
-                                self.brick_tex.unwrap(),
+                                &self.brick_tex.unwrap(),
                                 rect_x, rect_y,
                                 colors[engine.current_piece.shape_id as usize],
                                 DrawTextureParams {
