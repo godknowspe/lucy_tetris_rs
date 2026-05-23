@@ -9,8 +9,15 @@ pub enum GameState {
     GameOver,
 }
 
+pub enum Theme {
+    Classic,
+    SuperMario,
+}
+
 pub struct Renderer {
     state: GameState,
+    theme: Theme,
+    brick_tex: Option<macroquad::texture::Texture2D>,
     config_width: usize,
     config_height: usize,
     menu_selection: u8,
@@ -30,6 +37,8 @@ impl Renderer {
     pub fn new() -> Self {
         Self {
             state: GameState::Menu,
+            theme: Theme::SuperMario, // Default to Super Mario theme
+            brick_tex: None,
             config_width: 10,
             config_height: 20,
             menu_selection: 0,
@@ -47,8 +56,14 @@ impl Renderer {
     }
 
     pub async fn run(&mut self) {
+        // 載入材質
+        if let Ok(tex) = load_texture("src/ui/pic/brick.jpeg").await {
+            tex.set_filter(FilterMode::Nearest);
+            self.brick_tex = Some(tex);
+        }
+
         loop {
-            clear_background(Color::new(0.12, 0.12, 0.12, 1.0));
+            clear_background(if matches!(self.theme, Theme::SuperMario) { Color::new(0.36, 0.58, 0.98, 1.0) /* Sky Blue */ } else { Color::new(0.12, 0.12, 0.12, 1.0) });
 
             match self.state {
                 GameState::Menu => self.update_menu(),
@@ -255,15 +270,28 @@ impl Renderer {
         ];
 
         // Draw grid
+        let grid_col = if matches!(self.theme, Theme::SuperMario) { Color::new(1.0, 1.0, 1.0, 0.3) } else { DARKGRAY };
         for y in 0..engine.height {
             for x in 0..engine.width {
                 let rect_x = offset_x + x as f32 * self.cell_size;
                 let rect_y = offset_y + y as f32 * self.cell_size;
-                draw_rectangle_lines(rect_x, rect_y, self.cell_size, self.cell_size, 1.0, DARKGRAY);
+                draw_rectangle_lines(rect_x, rect_y, self.cell_size, self.cell_size, 1.0, grid_col);
                 
                 let cell = engine.grid[y][x];
                 if cell != 0 {
-                    draw_rectangle(rect_x + 1.0, rect_y + 1.0, self.cell_size - 2.0, self.cell_size - 2.0, colors[cell as usize]);
+                    if matches!(self.theme, Theme::SuperMario) && self.brick_tex.is_some() {
+                        draw_texture_ex(
+                            self.brick_tex.unwrap(),
+                            rect_x, rect_y,
+                            colors[cell as usize],
+                            DrawTextureParams {
+                                dest_size: Some(vec2(self.cell_size, self.cell_size)),
+                                ..Default::default()
+                            }
+                        );
+                    } else {
+                        draw_rectangle(rect_x + 1.0, rect_y + 1.0, self.cell_size - 2.0, self.cell_size - 2.0, colors[cell as usize]);
+                    }
                 }
             }
         }
@@ -318,7 +346,19 @@ impl Renderer {
                     if y >= 0 {
                         let rect_x = offset_x + x as f32 * self.cell_size;
                         let rect_y = offset_y + y as f32 * self.cell_size;
-                        draw_rectangle(rect_x + 1.0, rect_y + 1.0, self.cell_size - 2.0, self.cell_size - 2.0, colors[engine.current_piece.shape_id as usize]);
+                        if matches!(self.theme, Theme::SuperMario) && self.brick_tex.is_some() {
+                            draw_texture_ex(
+                                self.brick_tex.unwrap(),
+                                rect_x, rect_y,
+                                colors[engine.current_piece.shape_id as usize],
+                                DrawTextureParams {
+                                    dest_size: Some(vec2(self.cell_size, self.cell_size)),
+                                    ..Default::default()
+                                }
+                            );
+                        } else {
+                            draw_rectangle(rect_x + 1.0, rect_y + 1.0, self.cell_size - 2.0, self.cell_size - 2.0, colors[engine.current_piece.shape_id as usize]);
+                        }
                     }
                 }
             }
